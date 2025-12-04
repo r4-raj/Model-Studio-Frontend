@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/generate-image",
+      "destination": "https://model-studio-backend-production.up.railway.app/api/generate-image"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "https://model-studio-backend-production.up.railway.app/api/$1"
+    }
+  ]
+} 
