@@ -104,14 +104,39 @@ export default function HomePage() {
     try {
       const formData = new FormData(e.currentTarget);
 
-      const res = await fetch(`${backendUrl}/api/generate-image`, {
+      // Fetch uses the local path, relies on vercel.json rewrite
+      const res = await fetch(`/api/generate-image`, {
         method: "POST",
         body: formData,
       });
 
+      // 🚨 UPDATED ERROR HANDLING LOGIC 🚨
+      if (!res.ok) {
+        let errorMsg = `Server Error: ${res.status} ${res.statusText}`;
+
+        // Attempt to parse JSON body for a detailed error message
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const errorData = await res.json();
+            // Assuming the backend error structure is { error: "..." }
+            errorMsg = errorData.error || errorMsg;
+          } catch (e) {
+            // Failed to parse JSON, use generic error message
+          }
+        } else {
+          // If not JSON (e.g., HTML 404/405 page), read as text and truncate
+          const errorText = await res.text();
+          errorMsg += `. Details: ${errorText.substring(0, 100)}...`;
+        }
+
+        throw new Error(errorMsg);
+      }
+      // END UPDATED ERROR HANDLING LOGIC
+
+      // If res.ok is true, we expect a valid JSON response
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (!data.imageBase64) throw new Error("Image missing");
+      if (!data.imageBase64) throw new Error("Image data missing in response.");
 
       setGeneratedImage(`data:image/png;base64,${data.imageBase64}`);
       setStatus("✅ Image generated successfully! Scroll down to view.");
