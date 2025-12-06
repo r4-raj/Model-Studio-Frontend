@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 
-/* ------------------------- DROPDOWN OPTIONS (Kept the same) ------------------------- */
+/* ------------------------- DROPDOWN OPTIONS (FINALIZED) ------------------------- */
 
 const POSES = [
+  // Prioritized Poses (from chart/previous lists)
+  "simple poses that highlight the saree's pleats, pallu, borders, and overall fit",
+  "saree is the main focus",
+  "Palldu spread pose",
+  "Side-angle saree display",
+  "Blouse zoom pose",
   "Front pose – full body, facing camera, standing straight",
   "Front 3/4 pose – full body, facing slightly to the side",
   "Back pose – full body, showing entire back of saree",
@@ -17,11 +23,18 @@ const POSES = [
   "Hand on waist pose – confident catalog pose",
   "Holding dupatta pose – both hands visible, dupatta displayed",
   "Over the shoulder pose – turning back slightly, looking at camera",
+  "close up face pose",
 ];
 
 const LOCATIONS = [
+  // Prioritized Location/Background options based on client chart
   "Plain white studio background, soft shadows",
   "Light grey studio background, professional catalog look",
+  "Velvet Curtain Background", 
+  "traditional Indian backdrop", 
+  "street / urban style", 
+  "café", 
+  "library", 
   "Pastel gradient studio background, soft and minimal",
   "Indoor office background, blurred, corporate look",
   "Modern living room background, blurred, home setting",
@@ -43,18 +56,32 @@ const ACCESSORIES = [
   "Simple ring and watch, office-wear accessories",
 ];
 
-const MODELS = [
+// 🚨 SPLIT FIELD 1: Model Type (Single Select Dropdown)
+const MODELS_TYPE_BUILD = [
   "Indian woman, medium height, average build, warm skin tone",
+  "fashion model professional",
+  "European model, slim fair",
+  "European model, young girl",
+  "young African woman",
   "Indian woman, slim build, fair–medium skin tone",
   "Indian woman, curvy build, medium skin tone",
   "Indian woman, dusky skin tone, elegant look",
-  "Young Indian woman, college-age, natural look",
-  "Mature Indian woman, graceful, minimal makeup",
-  "Plus-size Indian woman, confident pose",
   "Any Indian woman, neutral catalog look",
 ];
 
+// 🚨 SPLIT FIELD 2: Expression/Age (Multi-Select Checkboxes)
+const MODELS_EXPRESSION_AGE = [
+  "smiling expression",
+  "natural expression",
+  "neutral expression (catalog look)",
+  "age 20-40",
+  "age 15-20",
+  "GenZ style, use props",
+  "smooth complexion",
+];
+
 const OTHER_OPTIONS = [
+  "Match reference design as close as possible, no changes", // Prioritized consistency
   "Keep same saree / dress design and same colors",
   "Keep same design, change saree colour only",
   "Keep same saree, change blouse design only",
@@ -63,36 +90,43 @@ const OTHER_OPTIONS = [
   "Convert look to bridal – heavier makeup and styling",
   "Convert look to simple office-wear",
   "Match reference design but modernise slightly",
-  "Match reference design as close as possible, no changes",
   "Follow detailed custom instructions only",
 ];
 
-/* ------------------------- BACKEND URL (Kept the same) ------------------------- */
+// NEW DROPDOWN ARRAY FOR HAIR STYLES
+const HAIR_STYLES = [
+  "CURLY SHORT HAIR, elegant style",
+  "CURLY LONG HAIR, flowing style",
+  "SHORT HAIR, neat style",
+  "LONG HAIR, straight and classic",
+  "HIGHLIGHT CURLY LONG HAIR",
+  "HIGHLIGHT CURLY SHORT HAIR",
+  "Classic Indian bun or braid",
+];
+
+/* ------------------------- BACKEND URL & HELPER CLASSES (No change) ------------------------- */
 
 const backendUrl =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
-/* ------------------------- HELPER CLASSES (Refined) ------------------------- */
-
-// Replaced the simple formField with a styled class
 const formInputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500";
 
-// Label style
 const labelClass = "block text-sm font-bold text-slate-700 mb-2";
 
 /* ------------------------- COMPONENT ------------------------- */
 
 export default function HomePage() {
   const [refPreview, setRefPreview] = useState(null);
+  const [refPreview2, setRefPreview2] = useState(null);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [status, setStatus] = useState("Awaiting your input...");
   const [loading, setLoading] = useState(false);
 
-  function handleRefChange(e) {
+  function handleRefChange(e, setPreview) {
     const file = e.target.files?.[0];
-    if (!file) return setRefPreview(null);
-    setRefPreview(URL.createObjectURL(file));
+    if (!file) return setPreview(null);
+    setPreview(URL.createObjectURL(file));
   }
 
   async function handleSubmit(e) {
@@ -104,8 +138,12 @@ export default function HomePage() {
     try {
       const formData = new FormData(e.currentTarget);
 
-      // Fetch uses the local path, relies on vercel.json rewrite
-      const res = await fetch(`/api/generate-image`, {
+      // Use relative path for production (Vercel rewrite) and full URL for local development
+      const apiUrl = process.env.NODE_ENV === 'development' 
+        ? `${backendUrl}/api/generate-image`
+        : `/api/generate-image`;
+      
+      const res = await fetch(apiUrl, {
         method: "POST",
         body: formData,
       });
@@ -114,18 +152,16 @@ export default function HomePage() {
       if (!res.ok) {
         let errorMsg = `Server Error: ${res.status} ${res.statusText}`;
 
-        // Attempt to parse JSON body for a detailed error message
         const contentType = res.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           try {
             const errorData = await res.json();
-            // Assuming the backend error structure is { error: "..." }
             errorMsg = errorData.error || errorMsg;
           } catch (e) {
-            // Failed to parse JSON, use generic error message
+            // Failed to parse JSON
           }
         } else {
-          // If not JSON (e.g., HTML 404/405 page), read as text and truncate
+          // Read non-JSON error as text
           const errorText = await res.text();
           errorMsg += `. Details: ${errorText.substring(0, 100)}...`;
         }
@@ -175,37 +211,72 @@ export default function HomePage() {
               <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
                 <span className="mr-2 text-pink-500">🖼️</span> 1. Reference Image
               </h2>
-              <div className="flex flex-col md:flex-row justify-between gap-6 items-start">
-                <div className="flex-1 w-full">
-                  <label className={labelClass + " !mb-1"}>
-                    Upload Saree / Dress Image
-                  </label>
-                  <p className="text-xs text-slate-500 mb-3">
-                    The AI will use the design, print, and primary colors from this image.
-                  </p>
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row justify-between gap-6 items-start">
+                  <div className="flex-1 w-full">
+                    <label className={labelClass + " !mb-1"}>
+                      Upload main saree / dress image (required)
+                    </label>
+                    <p className="text-xs text-slate-500 mb-3">
+                      The AI will use the design, print, and primary colors from this image.
+                    </p>
 
-                  <input
-                    type="file"
-                    name="referenceImage"
-                    required
-                    accept="image/*"
-                    onChange={handleRefChange}
-                    className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 transition duration-150 cursor-pointer"
-                  />
+                    <input
+                      type="file"
+                      name="referenceImage"
+                      required
+                      accept="image/*"
+                      onChange={(e) => handleRefChange(e, setRefPreview)}
+                      className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 transition duration-150 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="w-[120px] h-[160px] md:w-[150px] md:h-[200px] flex-shrink-0 rounded-xl border-4 border-slate-300 bg-white flex items-center justify-center overflow-hidden shadow-lg">
+                    {refPreview ? (
+                      <img
+                        src={refPreview}
+                        alt="Reference Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 text-center px-3">
+                        Image Preview
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="w-[120px] h-[160px] md:w-[150px] md:h-[200px] flex-shrink-0 rounded-xl border-4 border-slate-300 bg-white flex items-center justify-center overflow-hidden shadow-lg">
-                  {refPreview ? (
-                    <img
-                      src={refPreview}
-                      alt="Reference Preview"
-                      className="w-full h-full object-cover"
+                <div className="flex flex-col md:flex-row justify-between gap-6 items-start">
+                  <div className="flex-1 w-full">
+                    <label className={labelClass + " !mb-1"}>
+                      Optional second reference image
+                    </label>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Add another angle or fabric close-up. If left empty, generation uses only the main image.
+                    </p>
+
+                    <input
+                      type="file"
+                      name="referenceImage2"
+                      accept="image/*"
+                      onChange={(e) => handleRefChange(e, setRefPreview2)}
+                      className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 transition duration-150 cursor-pointer"
                     />
-                  ) : (
-                    <span className="text-xs text-slate-400 text-center px-3">
-                      Image Preview
-                    </span>
-                  )}
+                  </div>
+
+                  <div className="w-[120px] h-[160px] md:w-[150px] md:h-[200px] flex-shrink-0 rounded-xl border-4 border-slate-300 bg-white flex items-center justify-center overflow-hidden shadow-lg">
+                    {refPreview2 ? (
+                      <img
+                        src={refPreview2}
+                        alt="Second Reference Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 text-center px-3">
+                        Optional image preview
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -218,13 +289,71 @@ export default function HomePage() {
             {/* Row 1: Pose */}
             <div>
               <label className={labelClass}>Pose</label>
-              <select name="pose" defaultValue="" required className={formInputClass}>
+              <select name="pose" defaultValue="" className={formInputClass}>
                 <option value="" disabled>Select the model's stance and position...</option>
                 {POSES.map((p) => <option key={p}>{p}</option>)}
               </select>
+              <input
+                name="poseNote"
+                type="text"
+                className={`${formInputClass} mt-3`}
+                placeholder="Add your own pose text or override the dropdown (optional)"
+              />
             </div>
 
-            {/* Row 2: Location + Model */}
+            {/* 🚨 UPDATED ROW: Model Type + Expression/Age (now checkboxes) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Model Type / Build (Dropdown - single select) */}
+              <div>
+                <label className={labelClass}>
+                  Model Type / Build (e.g., Indian, European)
+                </label>
+                <select name="modelType" defaultValue="" className={formInputClass}>
+                  <option value="" disabled>Select model type and build...</option>
+                  {MODELS_TYPE_BUILD.map((m) => <option key={m}>{m}</option>)}
+                </select>
+                <input
+                  name="modelTypeNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Custom model description (optional)"
+                />
+              </div>
+
+              {/* Right: Expression / Age (Checkboxes - multi-select) */}
+              <div>
+                <label className={labelClass}>
+                  Expression / Age (Select multiple)
+                </label>
+                <div className="p-3 border border-slate-200 bg-white rounded-xl shadow-sm space-y-2">
+                  {MODELS_EXPRESSION_AGE.map((e) => (
+                    <div key={e} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="modelExpression"
+                        value={e}
+                        id={`exp-${e.replace(/\s/g, '-')}`}
+                        className="h-4 w-4 text-pink-600 border-gray-300 rounded focus:ring-pink-500"
+                      />
+                      <label htmlFor={`exp-${e.replace(/\s/g, '-')}`} className="ml-2 text-sm text-slate-700">
+                        {e}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {/* Note field remains separate for custom text override */}
+                <input
+                  name="modelExpressionNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Additional custom expression or age text (optional)"
+                />
+              </div>
+            </div>
+            {/* END UPDATED ROW */}
+
+
+            {/* Row 3: Location + Hair Style */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Location */}
               <div>
@@ -235,21 +364,34 @@ export default function HomePage() {
                   <option value="" disabled>Select scene or background...</option>
                   {LOCATIONS.map((loc) => <option key={loc}>{loc}</option>)}
                 </select>
+                <input
+                  name="locationNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Custom background text (optional, can be used without dropdown)"
+                />
               </div>
 
-              {/* Model */}
+              {/* Hair Style */}
               <div>
                 <label className={labelClass}>
-                  Model Style / Build
+                  Hair Style
                 </label>
-                <select name="model" defaultValue="" className={formInputClass}>
-                  <option value="" disabled>Select model characteristics...</option>
-                  {MODELS.map((m) => <option key={m}>{m}</option>)}
+                <select name="hair" defaultValue="" className={formInputClass}>
+                  <option value="" disabled>Select hair style...</option>
+                  {HAIR_STYLES.map((h) => <option key={h}>{h}</option>)}
                 </select>
+                <input
+                  name="hairNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Custom hair style text (optional, can be used without dropdown)"
+                />
               </div>
             </div>
 
-            {/* Row 3: Accessories + Other Preset */}
+
+            {/* Row 4: Accessories + Design Change Preset */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Accessories */}
               <div>
@@ -260,9 +402,15 @@ export default function HomePage() {
                   <option value="" disabled>Select jewellery and props...</option>
                   {ACCESSORIES.map((a) => <option key={a}>{a}</option>)}
                 </select>
+                <input
+                  name="accessoriesNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Custom accessories text (optional, can be used without dropdown)"
+                />
               </div>
 
-              {/* Other preset */}
+              {/* Design Change Preset */}
               <div>
                 <label className={labelClass}>
                   Design Change Preset
@@ -271,6 +419,12 @@ export default function HomePage() {
                   <option value="" disabled>Select a design modification...</option>
                   {OTHER_OPTIONS.map((o) => <option key={o}>{o}</option>)}
                 </select>
+                <input
+                  name="otherOptionNote"
+                  type="text"
+                  className={`${formInputClass} mt-3`}
+                  placeholder="Custom design-change text (optional, can be used without dropdown)"
+                />
               </div>
             </div>
 
