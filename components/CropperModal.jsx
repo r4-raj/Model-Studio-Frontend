@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import Cropper from "react-easy-crop";
-import getCroppedImg from "@/lib/CropUtils"; // relative path adjust as needed
+import getCroppedImg from "../lib/cropUtils"; // relative path adjust as needed
 
 export default function CropperModal({ src, onCancel, onComplete, aspect = 3 / 4 }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
