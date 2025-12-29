@@ -125,6 +125,7 @@ export default function HomePage() {
   const [selectedRefFileForCrop, setSelectedRefFileForCrop] = useState(null); // File or null; if set, used as referenceImage in submit
   const [originalRefFile, setOriginalRefFile] = useState(null); // original primary file (File)
   const selectedRefFileInput = useRef(null);
+  const selectedRefFileInput2 = useRef(null);
 
   // SECOND image file holder (unmodified)
   const [originalRefFile2, setOriginalRefFile2] = useState(null);
@@ -406,12 +407,32 @@ export default function HomePage() {
                     </p>
 
                     <input
+                      ref={selectedRefFileInput2} // 1. Attach the new Ref here
                       type="file"
                       name="referenceImage2"
                       accept="image/*"
                       onChange={(e) => handleRefChange(e, setRefPreview2, true)}
                       className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 transition duration-150 cursor-pointer"
                     />
+
+                    {/* 2. Add the Clear Button Logic here */}
+                    {refPreview2 && (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRefPreview2(null);
+                            setOriginalRefFile2(null);
+                            if (selectedRefFileInput2.current) {
+                              selectedRefFileInput2.current.value = "";
+                            }
+                          }}
+                          className="px-3 py-1 rounded bg-red-100 text-sm"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="w-[120px] h-[160px] md:w-[150px] md:h-[200px] flex-shrink-0 rounded-xl border-4 border-slate-300 bg-white flex items-center justify-center overflow-hidden shadow-lg">
