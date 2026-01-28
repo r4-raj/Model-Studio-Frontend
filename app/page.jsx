@@ -116,10 +116,11 @@ export default function HomePage() {
   const [refPreview, setRefPreview] = useState(null); // preview URL for primary ref (original or cropped)
   const [refPreview2, setRefPreview2] = useState(null); // preview URL for second ref
   const [generatedImage, setGeneratedImage] = useState(null);
-const [generatedMime, setGeneratedMime] = useState("image/jpeg");
+  const [generatedMime, setGeneratedMime] = useState("image/jpeg");
   const [status, setStatus] = useState("Awaiting your input...");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // Crop controls
   const [showCropper, setShowCropper] = useState(false);
@@ -221,19 +222,19 @@ const [generatedMime, setGeneratedMime] = useState("image/jpeg");
         fd.append(
           "referenceImage",
           selectedRefFileForCrop,
-          selectedRefFileForCrop.name
+          selectedRefFileForCrop.name,
         );
         console.log(
           "Appending cropped referenceImage:",
           selectedRefFileForCrop.name,
-          selectedRefFileForCrop.size
+          selectedRefFileForCrop.size,
         );
       } else if (originalRefFile) {
         fd.append("referenceImage", originalRefFile, originalRefFile.name);
         console.log(
           "Appending original referenceImage:",
           originalRefFile.name,
-          originalRefFile.size
+          originalRefFile.size,
         );
       } else {
         throw new Error("No primary reference image provided.");
@@ -245,7 +246,7 @@ const [generatedMime, setGeneratedMime] = useState("image/jpeg");
         console.log(
           "Appending referenceImage2:",
           originalRefFile2.name,
-          originalRefFile2.size
+          originalRefFile2.size,
         );
       }
 
@@ -254,7 +255,7 @@ const [generatedMime, setGeneratedMime] = useState("image/jpeg");
       for (const pair of fd.entries()) {
         if (pair[1] instanceof File) {
           console.log(
-            `- ${pair[0]} => File: ${pair[1].name} (${pair[1].size} bytes)`
+            `- ${pair[0]} => File: ${pair[1].name} (${pair[1].size} bytes)`,
           );
         } else {
           console.log(`- ${pair[0]} => ${pair[1]}`);
@@ -292,14 +293,34 @@ const [generatedMime, setGeneratedMime] = useState("image/jpeg");
       const data = await res.json();
       if (!data.imageBase64) throw new Error("Image data missing in response.");
 
-      const mime = data.mimeType || "image/jpeg";
+      const mime = data.mimeType || "image/png";
 
-setGeneratedMime(mime);
-setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
-setStatus("✅ Image generated successfully! Scroll down to view.");
+      /* 1️⃣ SHOW IMAGE IMMEDIATELY (FAST PREVIEW) */
+      setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
+      setGeneratedMime(mime);
+      setStatus("✅ Image generated!");
+      setIsOptimizing(true);
 
-console.log("Generated image mime:", mime);
+      /* 2️⃣ BACKGROUND CLOUDINARY UPLOAD (NON-BLOCKING) */
+      uploadToCloudinary(data.imageBase64, mime)
+        .then((cloudinaryRes) => {
+          const optimizedUrl = cloudinaryRes.secure_url.replace(
+            "/upload/",
+            "/upload/fl_attachment,f_jpg,q_auto:good,w_2600/",
+          );
 
+          setGeneratedImage(optimizedUrl);
+          setGeneratedMime("image/jpeg");
+          setIsOptimizing(false);
+          setStatus("✅ Image optimized & ready to download!");
+        })
+        .catch((err) => {
+          console.error("Cloudinary optimization failed:", err);
+          setIsOptimizing(false);
+          setStatus("⚠️ Image ready (optimization skipped)");
+        });
+
+      console.log("Generated image mime:", mime);
 
       if (data.debugAttributes) {
         console.log("Backend debugAttributes:", data.debugAttributes);
@@ -312,20 +333,38 @@ console.log("Generated image mime:", mime);
     }
   }
 
-  function handleDownload() {
-  if (!generatedImage) return;
+  const handleDownload = () => {
+    if (!generatedImage) return;
 
-  const a = document.createElement("a");
-  const ext = generatedMime === "image/jpeg" ? "jpg" : "png";
+    const a = document.createElement("a");
+    a.href = generatedImage;
+    a.download = "generated-saree-catalog.jpg";
 
-  a.href = generatedImage;
-  a.download = `generated-saree-image.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
+  async function uploadToCloudinary(base64, mimeType) {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
+    const formData = new FormData();
+    formData.append("file", `data:${mimeType};base64,${base64}`);
+    formData.append("upload_preset", uploadPreset);
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    if (!res.ok) throw new Error("Cloudinary upload failed");
+
+    return await res.json();
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
@@ -738,9 +777,18 @@ console.log("Generated image mime:", mime);
                   />
                   <button
                     onClick={handleDownload}
-                    className="mt-3 px-6 py-2.5 rounded-full bg-emerald-600 text-white text-md font-semibold hover:bg-emerald-700 transition duration-200 shadow-lg"
+                    disabled={isOptimizing}
+                    className={`mt-3 px-6 py-2.5 rounded-full text-md font-semibold shadow-lg transition
+    ${
+      isOptimizing
+        ? "bg-gray-400 cursor-not-allowed"
+        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+    }
+  `}
                   >
-                    ⬇️ Download High-Res Image
+                    {isOptimizing
+                      ? "⏳ Optimizing..."
+                      : "⬇️ Download High-Res Image"}
                   </button>
                 </div>
               )}

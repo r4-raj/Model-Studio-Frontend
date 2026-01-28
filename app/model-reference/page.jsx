@@ -28,6 +28,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [selectedPose, setSelectedPose] = useState(null);
   const router = useRouter();
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
 
   const [originalRefFile, setOriginalRefFile] = useState(null);
   const selectedRefFileInput = useRef(null);
@@ -40,19 +42,18 @@ export default function HomePage() {
   }
 
   // ✅ Added missing download function
-  const handleDownload = () => {
+const handleDownload = () => {
   if (!generatedImage) return;
 
   const link = document.createElement("a");
-  const ext = generatedMime === "image/jpeg" ? "jpg" : "png";
-
   link.href = generatedImage;
-  link.download = `generated-saree-catalog.${ext}`;
+  link.download = "generated-saree-catalog.jpg";
 
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 };
+
 
 
   async function handleSubmit(e) {
@@ -110,11 +111,33 @@ export default function HomePage() {
         throw new Error("No image returned from backend");
       }
 
-      const mime = data.mimeType || "image/jpeg";
+const mime = data.mimeType || "image/png";
 
-setGeneratedMime(mime);
+/* 1️⃣ SHOW IMAGE IMMEDIATELY (FAST PREVIEW) */
 setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
-setStatus("✅ Image generated successfully!");
+setGeneratedMime(mime);
+setStatus("✅ Image generated!");
+setIsOptimizing(true);
+
+/* 2️⃣ BACKGROUND CLOUDINARY UPLOAD (NON-BLOCKING) */
+uploadToCloudinary(data.imageBase64, mime)
+  .then((cloudinaryRes) => {
+    const optimizedUrl = cloudinaryRes.secure_url.replace(
+      "/upload/",
+      "/upload/fl_attachment,f_jpg,q_auto:good,w_2600/"
+    );
+
+    setGeneratedImage(optimizedUrl);
+    setGeneratedMime("image/jpeg");
+    setIsOptimizing(false);
+    setStatus("✅ Image optimized & ready to download!");
+  })
+  .catch((err) => {
+    console.error("Cloudinary optimization failed:", err);
+    setIsOptimizing(false);
+    setStatus("⚠️ Image ready (optimization skipped)");
+  });
+
 
 console.log("Image format from backend:", mime);
 
@@ -125,6 +148,29 @@ console.log("Image format from backend:", mime);
       setLoading(false);
     }
   }
+
+  async function uploadToCloudinary(base64, mimeType) {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+  const formData = new FormData();
+  formData.append("file", `data:${mimeType};base64,${base64}`);
+  formData.append("upload_preset", uploadPreset);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Cloudinary upload failed");
+  }
+
+  return await res.json();
+}
 
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
@@ -267,11 +313,18 @@ console.log("Image format from backend:", mime);
                     className="w-full max-h-[500px] rounded-2xl border-4 border-pink-100 shadow-xl object-contain bg-slate-50 mx-auto"
                   />
                   <button
-                    onClick={handleDownload}
-                    className="mt-3 px-6 py-2.5 rounded-full bg-emerald-600 text-white text-md font-semibold hover:bg-emerald-700 transition duration-200 shadow-lg"
-                  >
-                    ⬇️ Download High-Res Image
-                  </button>
+  onClick={handleDownload}
+  disabled={isOptimizing}
+  className={`mt-3 px-6 py-2.5 rounded-full text-md font-semibold shadow-lg transition
+    ${
+      isOptimizing
+        ? "bg-gray-400 cursor-not-allowed text-white"
+        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+    }`}
+>
+  {isOptimizing ? "⏳ Optimizing..." : "⬇️ Download High-Res Image"}
+</button>
+
                 </div>
               )}
             </div>
