@@ -23,6 +23,7 @@ const labelClass = "block text-sm font-bold text-slate-700 mb-2";
 export default function HomePage() {
   const [refPreview, setRefPreview] = useState(null);
   const [generatedImage, setGeneratedImage] = useState(null);
+  const [generatedMime, setGeneratedMime] = useState("image/jpeg");
   const [status, setStatus] = useState("Awaiting your input...");
   const [loading, setLoading] = useState(false);
   const [selectedPose, setSelectedPose] = useState(null);
@@ -40,14 +41,19 @@ export default function HomePage() {
 
   // ✅ Added missing download function
   const handleDownload = () => {
-    if (!generatedImage) return;
-    const link = document.createElement("a");
-    link.href = generatedImage;
-    link.download = "generated-saree-catalog.png";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  if (!generatedImage) return;
+
+  const link = document.createElement("a");
+  const ext = generatedMime === "image/jpeg" ? "jpg" : "png";
+
+  link.href = generatedImage;
+  link.download = `generated-saree-catalog.${ext}`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -104,8 +110,14 @@ export default function HomePage() {
         throw new Error("No image returned from backend");
       }
 
-      setGeneratedImage(`data:image/png;base64,${data.imageBase64}`);
-      setStatus("✅ Image generated successfully!");
+      const mime = data.mimeType || "image/jpeg";
+
+setGeneratedMime(mime);
+setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
+setStatus("✅ Image generated successfully!");
+
+console.log("Image format from backend:", mime);
+
     } catch (err) {
       console.error("Generation error:", err);
       setStatus("❌ " + err.message);

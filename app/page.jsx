@@ -116,6 +116,7 @@ export default function HomePage() {
   const [refPreview, setRefPreview] = useState(null); // preview URL for primary ref (original or cropped)
   const [refPreview2, setRefPreview2] = useState(null); // preview URL for second ref
   const [generatedImage, setGeneratedImage] = useState(null);
+const [generatedMime, setGeneratedMime] = useState("image/jpeg");
   const [status, setStatus] = useState("Awaiting your input...");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -291,8 +292,14 @@ export default function HomePage() {
       const data = await res.json();
       if (!data.imageBase64) throw new Error("Image data missing in response.");
 
-      setGeneratedImage(`data:image/png;base64,${data.imageBase64}`);
-      setStatus("✅ Image generated successfully! Scroll down to view.");
+      const mime = data.mimeType || "image/jpeg";
+
+setGeneratedMime(mime);
+setGeneratedImage(`data:${mime};base64,${data.imageBase64}`);
+setStatus("✅ Image generated successfully! Scroll down to view.");
+
+console.log("Generated image mime:", mime);
+
 
       if (data.debugAttributes) {
         console.log("Backend debugAttributes:", data.debugAttributes);
@@ -306,11 +313,19 @@ export default function HomePage() {
   }
 
   function handleDownload() {
-    const a = document.createElement("a");
-    a.href = generatedImage;
-    a.download = "generated-saree-image.png";
-    a.click();
-  }
+  if (!generatedImage) return;
+
+  const a = document.createElement("a");
+  const ext = generatedMime === "image/jpeg" ? "jpg" : "png";
+
+  a.href = generatedImage;
+  a.download = `generated-saree-image.${ext}`;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
